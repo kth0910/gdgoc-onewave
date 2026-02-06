@@ -26,6 +26,7 @@ const DashboardPage = () => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [credits, setCredits] = useState<number | null>(null);
 
   // Reset search query when switching tabs
   useEffect(() => {
@@ -98,10 +99,39 @@ const DashboardPage = () => {
     }
   };
 
+  const fetchCredits = async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await fetch(`${baseUrl}/functions/v1/user/credit`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_KEY,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Assuming API returns { credits: 100 } or just count. Adjust based on real API if needed.
+        // Based on user prompt: GET /functions/v1/user/credit -> credit balance
+        // We'll treat data as the balance or extract it.
+        // Let's assume it returns { credit: 100 } or similar object, or just number.
+        // Safe check:
+        setCredits(typeof data === 'number' ? data : (data.credit || data.credits || 0));
+      }
+    } catch (error) {
+      console.error("Error fetching credits:", error);
+    }
+  };
+
   useEffect(() => {
     if (!isAuthValidating) {
       fetchPortfolios();
       fetchVideos();
+      fetchCredits();
     }
   }, [isAuthValidating]);
 
@@ -457,14 +487,31 @@ const DashboardPage = () => {
             <span className="material-symbols-outlined">settings</span>
           </button>
         </nav>
-        <div className="mt-auto flex flex-col gap-6">
+        <div className="mt-auto flex flex-col items-center gap-6">
+           {/* Credit Display */}
+           {credits !== null && (
+             <div className="flex flex-col items-center gap-1 group">
+                <div className="flex items-center gap-1 bg-slate-100 rounded-full px-2 py-1 border border-slate-200">
+                    <span className="material-symbols-outlined text-[14px] text-amber-500">monetization_on</span>
+                    <span className="text-[10px] font-bold text-slate-600">{credits}</span>
+                    <button 
+                        onClick={() => navigate('/credits')}
+                        className="ml-1 size-4 bg-primary text-white rounded-full flex items-center justify-center hover:bg-indigo-700 transition-colors"
+                        title="Add Credits"
+                    >
+                        <span className="material-symbols-outlined text-[10px] font-bold">add</span>
+                    </button>
+                </div>
+             </div>
+           )}
+
            <button 
               onClick={() => setIsHelpOpen(true)}
               className={`p-3 transition-colors ${darkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-primary'}`}
             >
              <span className="material-symbols-outlined">help</span>
            </button>
-          <div className="size-10 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-50 shadow-sm">
+          <div className="size-10 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-50 shadow-sm relative group cursor-pointer">
             <div className="w-full h-full flex items-center justify-center bg-slate-300 text-slate-500 font-bold">DK</div>
           </div>
         </div>

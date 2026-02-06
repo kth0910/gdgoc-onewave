@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
+import CreditPage from './pages/CreditPage';
 
 function App() {
   return (
@@ -15,6 +16,19 @@ function App() {
             <>
               <SignedIn>
                 <DashboardPage />
+              </SignedIn>
+              <SignedOut>
+                <RedirectToSignIn />
+              </SignedOut>
+            </>
+          }
+        />
+        <Route
+          path="/credits"
+          element={
+            <>
+              <SignedIn>
+                <CreditPage />
               </SignedIn>
               <SignedOut>
                 <RedirectToSignIn />
