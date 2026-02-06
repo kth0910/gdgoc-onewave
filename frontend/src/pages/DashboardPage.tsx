@@ -12,6 +12,7 @@ const DashboardPage = () => {
   // DnD State
   const [selectedAssets, setSelectedAssets] = useState<any[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // API State
   const [isGenerating, setIsGenerating] = useState(false);
