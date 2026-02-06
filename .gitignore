@@ -2,14 +2,13 @@
 .vscode/
 !.vscode/extensions.json
 !.vscode/settings.json
+.idea/
 .DS_Store
 Thumbs.db
 *.log
 
 # Dependencies
 node_modules/
-.pnp
-.pnp.js
 
 # Production / Build
 dist/
@@ -17,20 +16,23 @@ build/
 out/
 .next/
 
+# Vite
+*.local
+
+# TypeScript
+*.tsbuildinfo
+
 # Supabase
 .supabase/
 supabase/.temp/
 
 # Environment Variables
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
-*.env.local
+.env.*
+!.env.example
 
-# Local DB seed (Optional: if you have sensitive data in seed)
-# supabase/seed.sql
+# Deno
+.deno/
 
-frontend/node_modules
+# Test artifacts
+frontend/test_write.txt
