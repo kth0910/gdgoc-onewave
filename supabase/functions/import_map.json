@@ -3,6 +3,9 @@
     "std/": "https://deno.land/std@0.168.0/",
     "http/server": "https://deno.land/std@0.168.0/http/server.ts",
     "supabase": "https://esm.sh/@supabase/supabase-js@2.38.4",
-    "jose": "https://deno.land/x/jose@v4.14.4/index.ts"
+    "jose": "https://deno.land/x/jose@v4.14.4/index.ts",
+    "@clerk/backend": "https://esm.sh/@clerk/backend@1.24.1",
+    "hono": "https://esm.sh/hono@4.4.7",
+    "@hono/swagger-ui": "https://esm.sh/@hono/swagger-ui@0.2.1"
   }
 }
