@@ -14,8 +14,11 @@ const allowedOrigins = [
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
+  const method = req.method;
+  console.error(`>>>> [DEBUG] Incoming ${method} request from origin: ${origin}`);
+
   const corsHeaders: Record<string, string> = {
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey, x-client-info",
     "Access-Control-Allow-Credentials": "true",
   };
@@ -24,8 +27,8 @@ Deno.serve(async (req) => {
     corsHeaders["Access-Control-Allow-Origin"] = origin;
   }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
+  if (method === "OPTIONS") {
+    console.error(">>>> [DEBUG] Responding to OPTIONS preflight");
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -60,25 +63,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    // POST /portfolio - 새 포트폴리오 생성 (multipart/form-data)
+    // POST /portfolio - 새 포트폴리오 생성 (multipart/form-data mandatory)
     if (req.method === "POST") {
-      const formData = await req.formData();
-      const title = formData.get("title") as string;
-      const rawData = formData.get("raw_data") as string | null;
-      const pdfFile = formData.get("pdf") as File | null;
+      const contentType = req.headers.get("content-type") || "";
+      if (!contentType.includes("multipart/form-data")) {
+        throw new Error("Content-Type must be multipart/form-data to support file uploads.");
+      }
+
+      let title: string;
+      let rawData: any = null;
+      let pdfFile: File | null = null;
+
+      try {
+        const formData = await req.formData();
+        title = formData.get("title") as string;
+        const rawDataStr = formData.get("raw_data") as string | null;
+        rawData = rawDataStr ? JSON.parse(rawDataStr) : null;
+        pdfFile = formData.get("pdf") as File | null;
+      } catch (e) {
+        throw new Error(`Failed to decode form data: ${e.message}`);
+      }
 
       if (!title) throw new Error("Title is required.");
 
       let pdfPath: string | null = null;
 
-      // PDF 파일이 있으면 Supabase Storage에 업로드
-      if (pdfFile) {
+      // PDF 파일이 필수라면 여기서 pdfFile 존재 여부를 체크할 수도 있습니다.
+      // 현재는 선택사항으로 유지하되, 있다면 업로드합니다.
+      if (pdfFile && pdfFile.size > 0) {
         const safeName = encodeURIComponent(pdfFile.name);
         const filePath = `${userId}/${Date.now()}_${safeName}`;
         const { error: uploadError } = await supabase.storage
           .from("portfolios")
           .upload(filePath, pdfFile, {
             contentType: pdfFile.type,
+            upsert: false
           });
 
         if (uploadError) throw new Error("PDF upload failed: " + uploadError.message);
@@ -91,7 +110,7 @@ Deno.serve(async (req) => {
           user_id: userId,
           title,
           pdf_path: pdfPath,
-          raw_data: rawData ? JSON.parse(rawData) : null,
+          raw_data: rawData,
         })
         .select()
         .single();
@@ -126,13 +145,10 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[Portfolios] Error:", message);
+    console.error("[Portfolio] Error:", message);
     return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
-    });
-  }
-});
     });
   }
 });
