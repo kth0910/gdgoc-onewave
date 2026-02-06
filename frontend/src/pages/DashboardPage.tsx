@@ -21,6 +21,11 @@ const DashboardPage = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [loadingVideoId, setLoadingVideoId] = useState<string | null>(null);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   // Reset search query when switching tabs
   useEffect(() => {
@@ -75,15 +80,18 @@ const DashboardPage = () => {
         const data = await response.json();
         const formattedVideos = data.map((v: any) => ({
           id: v.id,
-          title: v.ai_metadata?.prompt || 'Untitled Video', // Fallback title
+          title: v.ai_metadata?.prompt || 'Untitled Video', 
           date: new Date(v.created_at).toLocaleDateString(),
-          duration: '0:30', // Mock duration until real generation
-          status: v.status === 'READY' ? 'Completed' : 'Processing', // Map statuses
-          thumbnail: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' // Placeholder
+          duration: v.metadata?.duration || '00:00',
+          video_url: v.video_url,
+          status: v.status === 'READY' ? 'Completed' : 'Processing', 
+          thumbnail: v.thumbnail_url || '' 
         }));
         setVideos(formattedVideos);
+        return formattedVideos;
       } else {
         console.error("Failed to fetch videos");
+        return [];
       }
     } catch (error) {
       console.error("Error fetching videos:", error);
@@ -144,14 +152,79 @@ const DashboardPage = () => {
     syncAuth();
   }, [getToken, signOut, navigate]);
 
-  // Toggle Dark Mode
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+  const togglePlay = () => {
+    if (videoRef.current) {
+        if (isPlaying) {
+            videoRef.current.pause();
+        } else {
+            videoRef.current.play();
+        }
+        setIsPlaying(!isPlaying);
     }
-  }, [darkMode]);
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+        setCurrentTime(videoRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+        setDuration(videoRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (videoRef.current && duration > 0) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const offsetX = e.clientX - rect.left;
+        const percent = Math.min(Math.max(0, offsetX / rect.width), 1);
+        const newTime = percent * duration;
+        videoRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Video Generation Timer (Wait 10s then finish)
+  useEffect(() => {
+    let timerId: any;
+
+    if (loadingVideoId) {
+      timerId = setTimeout(async () => {
+        setLoadingVideoId(null);
+        setHasGeneratedVideo(true);
+        
+        // Refresh list and find the generated video
+        const updatedVideos = await fetchVideos();
+        const generatedVideo = updatedVideos?.find((v: any) => v.id === loadingVideoId);
+
+        if (generatedVideo && generatedVideo.video_url) {
+            setCurrentVideoUrl(generatedVideo.video_url);
+            setIsPlaying(true); 
+            
+            // Auto-play hack for ref
+            setTimeout(() => {
+                if (videoRef.current) videoRef.current.play();
+            }, 100);
+        } else {
+             alert("Video generation pending or failed. Please check My Videos later.");
+             setHasGeneratedVideo(false); 
+        }
+      }, 15000); // 10 seconds delay
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [loadingVideoId]);
+
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -168,8 +241,9 @@ const DashboardPage = () => {
 
 
   const scriptSegments = [
-    { time: '00:00', title: 'Self Introduction', content: 'Senior Developer Alex here, specializing in full-stack architecture and robust cloud solutions.' },
-    { time: '00:15', title: 'Core Competency', content: 'Proficient in TypeScript, Rust, AWS. I transform complex problems into elegant, scalable code.' },
+    { title: 'Introduction', time: '0:00 - 0:15', content: "Hi, I'm a passionate developer fetching data from the future." },
+    { title: 'Experience', time: '0:15 - 0:45', content: "I have worked on various high-impact projects." },
+    { title: 'Closing', time: '0:45 - 0:58', content: "Contact me to build something amazing together." }
   ];
 
   // Drag and Drop Handlers
@@ -258,17 +332,8 @@ const DashboardPage = () => {
         setAssets([safeAsset, ...assets]);
         alert("Asset uploaded successfully!");
       } else {
-         console.warn("Upload failed (expected in mock):", response.status);
-         // Simulate success for demo if API fails
-         const mockAsset = {
-           id: Date.now(),
-           name: file.name,
-           date: 'Just now',
-           type: isCode ? 'code' : 'doc',
-           color: 'emerald'
-        };
-        setAssets([mockAsset, ...assets]);
-        alert("Asset upload simulated (API not ready).");
+         console.warn("Upload failed:", response.status);
+         alert("Failed to upload asset.");
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -317,15 +382,16 @@ const DashboardPage = () => {
         credentials: 'include',
       });
 
-      if (response.ok || response.status === 202) { // Accepting 202 as per spec
-          alert("Video generation started successfully!");
-          setHasGeneratedVideo(true);
-          // Reset or redirect logic here if needed
+      if (response.ok || response.status === 202 || response.status === 201) { 
+          const data = await response.json();
+          if (data && data.id) {
+              setLoadingVideoId(data.id);
+          } else {
+              alert("Failed to start generation.");
+          }
       } else {
-        // Fallback for mock environment if checking strictly, otherwise alert success for demo
-         console.warn("API request failed (expected in mock env):", response.status);
-         alert("Video generation request simulated. (API endpoint not actually running)");
-         setHasGeneratedVideo(true);
+         console.warn("API request failed:", response.status);
+         alert("Failed to start video generation.");
       }
 
     } catch (error) {
@@ -333,6 +399,17 @@ const DashboardPage = () => {
       alert("Failed to start video generation. (Network error)");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (currentVideoUrl) {
+        const link = document.createElement('a');
+        link.href = currentVideoUrl;
+        link.download = `video-${Date.now()}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
   };
 
@@ -430,7 +507,20 @@ const DashboardPage = () => {
           {selectedTab === 'videos' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {videos.map((video) => (
-                <div key={video.id} className={`group relative rounded-3xl overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-1 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                <div 
+                    key={video.id} 
+                    className={`group relative rounded-3xl overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+                    onClick={() => {
+                        if (video.video_url) {
+                            setCurrentVideoUrl(video.video_url);
+                            setHasGeneratedVideo(true);
+                            setIsPlaying(true);
+                             setTimeout(() => {
+                                if (videoRef.current) videoRef.current.play();
+                            }, 100);
+                        }
+                    }}
+                >
                   <div className="aspect-[9/16] bg-slate-100 relative overflow-hidden group-hover:after:absolute group-hover:after:inset-0 group-hover:after:bg-black/20 group-hover:after:transition-all">
                     <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
                     <div className="absolute top-4 right-4 px-2.5 py-1 bg-black/50 backdrop-blur-md rounded-lg text-white text-[10px] font-bold">
@@ -652,6 +742,13 @@ const DashboardPage = () => {
                         <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-md border border-emerald-100 uppercase tracking-wider ml-2">DRAFT</span>
                     </div>
                     <div className="flex items-center gap-4">
+                        <button 
+                          onClick={handleDownload}
+                          disabled={!hasGeneratedVideo || !currentVideoUrl}
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${darkMode ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}
+                        >
+                            <span className="material-symbols-outlined text-xl">download</span> Download
+                        </button>
 
                         <button 
                           onClick={handleGenerate}
@@ -773,15 +870,28 @@ const DashboardPage = () => {
                     <div className="w-[340px] flex flex-col shrink-0">
                         <div className="sticky top-0 space-y-8">
                             <div className="aspect-[9/16] bg-slate-950 rounded-[3rem] border-[10px] border-slate-900 overflow-hidden relative shadow-[0_40px_80px_-20px_rgba(0,0,0,0.25)] ring-1 ring-slate-800">
-                                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/20 to-slate-950 flex flex-col items-center justify-center p-8 text-center">
-                                    <div className="relative z-10 w-full">
-                                        <div className="size-20 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full mx-auto mb-8 flex items-center justify-center shadow-2xl">
-                                            <span className="material-symbols-outlined text-white text-4xl ml-1">{isPlaying ? 'pause' : 'play_arrow'}</span>
+                                {hasGeneratedVideo && currentVideoUrl ? (
+                                    <video 
+                                        ref={videoRef}
+                                        src={currentVideoUrl}
+                                        className="absolute inset-0 w-full h-full object-cover"
+                                        // autoPlay controlled via ref or effect
+                                        loop
+                                        muted={false} 
+                                        controls={false}
+                                        onTimeUpdate={handleTimeUpdate}
+                                        onLoadedMetadata={handleLoadedMetadata}
+                                        onEnded={() => setIsPlaying(false)}
+                                    />
+                                ) : (
+                                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/20 to-slate-950 flex flex-col items-center justify-center p-8 text-center">
+                                        <div className="relative z-10 w-full">
+                                            <div className="size-20 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full mx-auto mb-8 flex items-center justify-center shadow-2xl">
+                                                <span className="material-symbols-outlined text-white text-4xl ml-1">{isPlaying ? 'pause' : 'play_arrow'}</span>
+                                            </div>
                                         </div>
-                                        <h4 className="text-2xl font-black text-white mb-2 leading-tight tracking-tight">ALEX RIVERA</h4>
-                                        <p className="text-primary font-black text-[10px] tracking-[0.3em] mb-10 uppercase">Senior Software Engineer</p>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -790,22 +900,34 @@ const DashboardPage = () => {
                 {/* Timeline Footer */}
                 {/* Timeline Footer - Only show after generation */}
                 {hasGeneratedVideo && (
-                <footer className={`h-44 border-t px-10 py-7 z-10 backdrop-blur-md ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-100'}`}>
-                    <div className="flex items-center gap-8 mb-6">
+                <footer className={`h-28 border-t px-10 py-5 z-10 backdrop-blur-md transition-all ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-100'}`}>
+                    <div className="flex items-center gap-8 h-full">
                         <div className="flex gap-3">
                             <button className={`size-10 flex items-center justify-center rounded-xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className="material-symbols-outlined text-2xl">skip_previous</span></button>
                             <button 
-                                onClick={() => setIsPlaying(!isPlaying)}
+                                onClick={togglePlay}
                                 className="size-10 flex items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/25 hover:bg-indigo-700"
                             >
                                 <span className="material-symbols-outlined text-2xl">{isPlaying ? 'pause' : 'play_arrow'}</span>
                             </button>
                             <button className={`size-10 flex items-center justify-center rounded-xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className="material-symbols-outlined text-2xl">skip_next</span></button>
                         </div>
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full relative">
-                            <div className="absolute top-1/2 -translate-y-1/2 left-[25%] size-4 bg-primary rounded-full shadow-lg ring-4 ring-primary/10 cursor-pointer"></div>
+                        <div 
+                            className="flex-1 h-2 bg-slate-100 rounded-full relative cursor-pointer group"
+                            onClick={handleSeek}
+                        >
+                            <div 
+                                className="absolute top-0 left-0 h-full bg-primary rounded-full"
+                                style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                            ></div>
+                            <div 
+                                className="absolute top-1/2 -translate-y-1/2 size-4 bg-primary rounded-full shadow-lg ring-4 ring-primary/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ left: `${(currentTime / (duration || 1)) * 100}%` }}
+                            ></div>
                         </div>
-                        <span className="text-[13px] font-bold text-slate-500 tabular-nums">00:14 / 00:58</span>
+                        <span className="text-[13px] font-bold text-slate-500 tabular-nums min-w-[100px] text-right">
+                             {formatTime(currentTime)} / {formatTime(duration)}
+                        </span>
                     </div>
                 </footer>
                 )}
@@ -813,6 +935,14 @@ const DashboardPage = () => {
         </>
       )}
 
+      {/* Video Generation Loading Overlay */}
+      {loadingVideoId && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md text-white">
+          <div className="size-24 rounded-full border-4 border-white/10 border-t-primary animate-spin mb-8"></div>
+          <h2 className="text-3xl font-black tracking-tight mb-2 animate-pulse">GENERATING VIDEO</h2>
+          <p className="text-slate-400 font-medium tracking-widest uppercase text-sm">AI is analyzing your assets...</p>
+        </div>
+      )}
       {/* Help Modal */}
       {isHelpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -881,8 +1011,12 @@ const DashboardPage = () => {
         </div>
       )}
 
+
+
     </div>
   );
 };
+
+
 
 export default DashboardPage;
