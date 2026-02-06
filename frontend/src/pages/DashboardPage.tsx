@@ -16,94 +16,21 @@ const DashboardPage = () => {
 
   // API State
   const [isGenerating, setIsGenerating] = useState(false);
-  const [hasGeneratedVideo, setHasGeneratedVideo] = useState(false);
   const [isAuthValidating, setIsAuthValidating] = useState(true);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [loadingVideoId, setLoadingVideoId] = useState<string | null>(null);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [assets, setAssets] = useState([
+    { id: 1, name: 'Senior_Resume.pdf', date: 'Edited 2 days ago', type: 'doc', color: 'rose' },
+    { id: 2, name: 'Auth_Module_Refactor.js', date: 'Edited 5 hours ago', type: 'code', color: 'amber' },
+    { id: 3, name: 'Product_Portfolio.pdf', date: 'Edited 1 week ago', type: 'doc', color: 'indigo' },
+    { id: 4, name: 'Data_Viz_Snippet.py', date: 'Edited 3 days ago', type: 'code', color: 'emerald' },
+    { id: 5, name: 'System_Architecture.docx', date: 'Edited 1 day ago', type: 'doc', color: 'blue' },
+  ]);
 
-  // Reset search query when switching tabs
-  useEffect(() => {
-    setSearchQuery('');
-  }, [selectedTab]);
-
-  const [assets, setAssets] = useState<any[]>([]);
-
-  const fetchPortfolios = async () => {
-    try {
-      const token = await getToken();
-      if (!token) return;
-
-      const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${baseUrl}/functions/v1/portfolio`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_KEY,
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAssets(data);
-      } else {
-        console.error("Failed to fetch portfolios");
-      }
-    } catch (error) {
-      console.error("Error fetching portfolios:", error);
-    }
-  };
-
-  const [videos, setVideos] = useState<any[]>([]);
-
-  const fetchVideos = async () => {
-    try {
-      const token = await getToken();
-      if (!token) return;
-
-      const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${baseUrl}/functions/v1/videos`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_KEY,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const formattedVideos = data.map((v: any) => ({
-          id: v.id,
-          title: v.ai_metadata?.prompt || 'Untitled Video', 
-          date: new Date(v.created_at).toLocaleDateString(),
-          duration: v.metadata?.duration || '00:00',
-          video_url: v.video_url,
-          status: v.status === 'READY' ? 'Completed' : 'Processing', 
-          thumbnail: v.thumbnail_url || '' 
-        }));
-        setVideos(formattedVideos);
-        return formattedVideos;
-      } else {
-        console.error("Failed to fetch videos");
-        return [];
-      }
-    } catch (error) {
-      console.error("Error fetching videos:", error);
-    }
-  };
-
-  useEffect(() => {
-    if (!isAuthValidating) {
-      fetchPortfolios();
-      fetchVideos();
-    }
-  }, [isAuthValidating]);
+  const [videos] = useState([
+    { id: 1, title: 'Alex Rivera - Senior Engineer', date: 'Created 2 hours ago', duration: '0:58', status: 'Completed', thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+    { id: 2, title: 'Project Showcase 2024', date: 'Created 1 day ago', duration: '1:15', status: 'Processing', thumbnail: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+    { id: 3, title: 'Tech Talk Intro', date: 'Created 3 days ago', duration: '0:45', status: 'Draft', thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  ]);
 
   // Auth Sync
   useEffect(() => {
@@ -152,79 +79,14 @@ const DashboardPage = () => {
     syncAuth();
   }, [getToken, signOut, navigate]);
 
-  const togglePlay = () => {
-    if (videoRef.current) {
-        if (isPlaying) {
-            videoRef.current.pause();
-        } else {
-            videoRef.current.play();
-        }
-        setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-        setCurrentTime(videoRef.current.currentTime);
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-        setDuration(videoRef.current.duration);
-    }
-  };
-
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (videoRef.current && duration > 0) {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const offsetX = e.clientX - rect.left;
-        const percent = Math.min(Math.max(0, offsetX / rect.width), 1);
-        const newTime = percent * duration;
-        videoRef.current.currentTime = newTime;
-        setCurrentTime(newTime);
-    }
-  };
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  // Video Generation Timer (Wait 10s then finish)
+  // Toggle Dark Mode
   useEffect(() => {
-    let timerId: any;
-
-    if (loadingVideoId) {
-      timerId = setTimeout(async () => {
-        setLoadingVideoId(null);
-        setHasGeneratedVideo(true);
-        
-        // Refresh list and find the generated video
-        const updatedVideos = await fetchVideos();
-        const generatedVideo = updatedVideos?.find((v: any) => v.id === loadingVideoId);
-
-        if (generatedVideo && generatedVideo.video_url) {
-            setCurrentVideoUrl(generatedVideo.video_url);
-            setIsPlaying(true); 
-            
-            // Auto-play hack for ref
-            setTimeout(() => {
-                if (videoRef.current) videoRef.current.play();
-            }, 100);
-        } else {
-             alert("Video generation pending or failed. Please check My Videos later.");
-             setHasGeneratedVideo(false); 
-        }
-      }, 15000); // 10 seconds delay
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
-
-    return () => {
-      if (timerId) clearTimeout(timerId);
-    };
-  }, [loadingVideoId]);
-
+  }, [darkMode]);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -241,9 +103,8 @@ const DashboardPage = () => {
 
 
   const scriptSegments = [
-    { title: 'Introduction', time: '0:00 - 0:15', content: "Hi, I'm a passionate developer fetching data from the future." },
-    { title: 'Experience', time: '0:15 - 0:45', content: "I have worked on various high-impact projects." },
-    { title: 'Closing', time: '0:45 - 0:58', content: "Contact me to build something amazing together." }
+    { time: '00:00', title: 'Self Introduction', content: 'Senior Developer Alex here, specializing in full-stack architecture and robust cloud solutions.' },
+    { time: '00:15', title: 'Core Competency', content: 'Proficient in TypeScript, Rust, AWS. I transform complex problems into elegant, scalable code.' },
   ];
 
   // Drag and Drop Handlers
@@ -269,8 +130,9 @@ const DashboardPage = () => {
       const assetData = e.dataTransfer.getData('application/json');
       if (assetData) {
         const asset = JSON.parse(assetData);
-        // Single asset selection mode: Replace existing selection
-        setSelectedAssets([asset]);
+        if (!selectedAssets.find(a => a.id === asset.id)) {
+          setSelectedAssets([...selectedAssets, asset]);
+        }
       }
     } catch (err) {
       console.error('Failed to parse dropped item', err);
@@ -293,35 +155,29 @@ const DashboardPage = () => {
     try {
       const token = await getToken();
       const formData = new FormData();
-      formData.append('pdf', file);
+      formData.append('file', file);
       // Determine type based on extension (simple heuristic)
       const isCode = file.name.match(/\.(js|ts|py|rs|go|java|cpp)$/i);
-      const type = isCode ? 'code' : 'doc';
-      
-      formData.append('title', file.name);
-      formData.append('raw_data', JSON.stringify({ 
-         type: type, 
-         originalSize: file.size, 
-         extension: file.name.split('.').pop() 
-      }));
+      if (isCode) {
+        formData.append('type', 'code');
+      } else {
+        formData.append('type', 'resume'); // Default to resume/doc
+      }
 
       // Optimistic UI update (optional) or wait for response
       // Let's verify with alert first as per previous pattern or just simple loading
-      const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${baseUrl}/functions/v1/portfolio`, {
+      const response = await fetch('/api/portfolio', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_KEY,
+          // Content-Type is set automatically for FormData
         },
         body: formData,
-        credentials: 'include',
       });
 
       if (response.ok || response.status === 201) {
         const newAsset = await response.json();
         // Fallback for mock environment if response is empty or not as expected
-        console.log(newAsset.id);
         const safeAsset = newAsset && newAsset.id ? newAsset : {
            id: Date.now(),
            name: file.name,
@@ -332,8 +188,17 @@ const DashboardPage = () => {
         setAssets([safeAsset, ...assets]);
         alert("Asset uploaded successfully!");
       } else {
-         console.warn("Upload failed:", response.status);
-         alert("Failed to upload asset.");
+         console.warn("Upload failed (expected in mock):", response.status);
+         // Simulate success for demo if API fails
+         const mockAsset = {
+           id: Date.now(),
+           name: file.name,
+           date: 'Just now',
+           type: isCode ? 'code' : 'doc',
+           color: 'emerald'
+        };
+        setAssets([mockAsset, ...assets]);
+        alert("Asset upload simulated (API not ready).");
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -355,43 +220,30 @@ const DashboardPage = () => {
     setIsGenerating(true);
 
     try {
-      // Map internal theme to API visual_style
-      const themeMap: Record<string, string> = {
-        'tech': 'standard tech',
-        'cyber': 'neon high-energy',
-        'eco': 'eco modern'
-      };
-
       const payload = {
-        portfolio_id: selectedAssets[0].id, // API expects single ID
-        visual_style: themeMap[selectedTheme] || 'standard tech'
+        assetIds: selectedAssets.map(a => a.id),
+        theme: selectedTheme
       };
 
       console.log("Sending generation request:", payload);
 
       const token = await getToken();
-      const baseUrl = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${baseUrl}/functions/v1/videos/generate`, {
+      const response = await fetch('/api/video/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_KEY,
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
-        credentials: 'include',
       });
 
-      if (response.ok || response.status === 202 || response.status === 201) { 
-          const data = await response.json();
-          if (data && data.id) {
-              setLoadingVideoId(data.id);
-          } else {
-              alert("Failed to start generation.");
-          }
+      if (response.ok || response.status === 202) { // Accepting 202 as per spec
+          alert("Video generation started successfully!");
+          // Reset or redirect logic here if needed
       } else {
-         console.warn("API request failed:", response.status);
-         alert("Failed to start video generation.");
+        // Fallback for mock environment if checking strictly, otherwise alert success for demo
+         console.warn("API request failed (expected in mock env):", response.status);
+         alert("Video generation request simulated. (API endpoint not actually running)");
       }
 
     } catch (error) {
@@ -399,17 +251,6 @@ const DashboardPage = () => {
       alert("Failed to start video generation. (Network error)");
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const handleDownload = () => {
-    if (currentVideoUrl) {
-        const link = document.createElement('a');
-        link.href = currentVideoUrl;
-        link.download = `video-${Date.now()}.mp4`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     }
   };
 
@@ -458,10 +299,7 @@ const DashboardPage = () => {
           </button>
         </nav>
         <div className="mt-auto flex flex-col gap-6">
-           <button 
-              onClick={() => setIsHelpOpen(true)}
-              className={`p-3 transition-colors ${darkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-primary'}`}
-            >
+           <button className={`p-3 transition-colors ${darkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-primary'}`}>
              <span className="material-symbols-outlined">help</span>
            </button>
           <div className="size-10 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-50 shadow-sm">
@@ -507,20 +345,7 @@ const DashboardPage = () => {
           {selectedTab === 'videos' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {videos.map((video) => (
-                <div 
-                    key={video.id} 
-                    className={`group relative rounded-3xl overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-                    onClick={() => {
-                        if (video.video_url) {
-                            setCurrentVideoUrl(video.video_url);
-                            setHasGeneratedVideo(true);
-                            setIsPlaying(true);
-                             setTimeout(() => {
-                                if (videoRef.current) videoRef.current.play();
-                            }, 100);
-                        }
-                    }}
-                >
+                <div key={video.id} className={`group relative rounded-3xl overflow-hidden border transition-all hover:shadow-xl hover:-translate-y-1 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                   <div className="aspect-[9/16] bg-slate-100 relative overflow-hidden group-hover:after:absolute group-hover:after:inset-0 group-hover:after:bg-black/20 group-hover:after:transition-all">
                     <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
                     <div className="absolute top-4 right-4 px-2.5 py-1 bg-black/50 backdrop-blur-md rounded-lg text-white text-[10px] font-bold">
@@ -575,15 +400,18 @@ const DashboardPage = () => {
                     className={`w-full rounded-2xl pl-12 pr-4 py-3.5 text-sm outline-none border transition-all focus:ring-2 focus:ring-primary/50 focus:border-primary ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 focus:shadow-sm'}`} 
                     placeholder="Search assets..." 
                     type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
+                </div>
+                <div className="flex gap-2">
+                  <button className="px-5 py-3.5 bg-primary text-white text-sm font-bold rounded-xl shadow-md shadow-primary/20">All</button>
+                  <button className={`px-5 py-3.5 text-sm font-bold rounded-xl border transition-colors ${darkMode ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Resumes</button>
+                  <button className={`px-5 py-3.5 text-sm font-bold rounded-xl border transition-colors ${darkMode ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Code</button>
                 </div>
               </div>
 
               {/* Assets List */}
               <div className="space-y-4">
-                {assets.filter(asset => asset.title.toLowerCase().includes(searchQuery.toLowerCase())).map((asset) => (
+                {assets.map((asset) => (
                   <div key={asset.id} className={`group p-5 rounded-2xl border transition-all hover:shadow-lg cursor-pointer flex items-center gap-5 ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-primary/50' : 'bg-white border-slate-100 hover:border-primary/30'}`}>
                     <div 
                       className={`size-14 flex items-center justify-center rounded-2xl text-xl shrink-0 ${
@@ -597,7 +425,7 @@ const DashboardPage = () => {
                       <span className="material-symbols-outlined">{asset.type === 'doc' ? 'description' : asset.type === 'code' ? 'terminal' : 'description'}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className={`text-base font-bold truncate mb-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.title}</h4>
+                      <h4 className={`text-base font-bold truncate mb-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.name}</h4>
                       <div className="flex items-center gap-3">
                         <span className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>{asset.date}</span>
                         <div className={`size-1 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-slate-300'}`}></div>
@@ -692,14 +520,17 @@ const DashboardPage = () => {
                         className={`w-full rounded-xl pl-11 pr-4 py-2.5 text-sm focus:ring-primary focus:border-primary shadow-sm outline-none border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-slate-200'}`} 
                         placeholder="Search assets..." 
                         type="text" 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
+                </div>
+                <div className="flex gap-2 mb-2">
+                    <button className="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-full shadow-md shadow-primary/20">All</button>
+                    <button className={`px-4 py-1.5 text-xs font-semibold rounded-full border hover:bg-slate-50 ${darkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-white text-slate-500 border-slate-200'}`}>Resume</button>
+                    <button className={`px-4 py-1.5 text-xs font-semibold rounded-full border hover:bg-slate-50 ${darkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-white text-slate-500 border-slate-200'}`}>Code</button>
                 </div>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto px-7 pb-6 space-y-3 no-scrollbar">
-                {assets.filter(asset => asset.title.toLowerCase().includes(searchQuery.toLowerCase())).map((asset) => (
+                {assets.map((asset) => (
                     <div 
                       key={asset.id} 
                       draggable
@@ -719,7 +550,7 @@ const DashboardPage = () => {
                         <span className="material-symbols-outlined">{asset.type === 'doc' ? 'description' : asset.type === 'code' ? 'terminal' : 'description'}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                        <p className={`text-[13px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.title}</p>
+                        <p className={`text-[13px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.name}</p>
                         <p className={`text-[10px] mt-1 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>{asset.date}</p>
                         </div>
                     </div>
@@ -727,7 +558,15 @@ const DashboardPage = () => {
                 ))}
                 </div>
 
-
+                <div className={`p-6 border-t ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white/50'}`}>
+                    <div className={`flex items-center justify-between text-[11px] font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <span>Storage Used (85%)</span>
+                        <span className="text-primary">1.7GB / 2GB</span>
+                    </div>
+                    <div className={`w-full h-2 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
+                        <div className="h-full bg-primary rounded-full shadow-[0_0_8px_rgba(79,70,229,0.3)]" style={{ width: '85%' }}></div>
+                    </div>
+                </div>
             </section>
 
             {/* Main Workspace */}
@@ -742,14 +581,9 @@ const DashboardPage = () => {
                         <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-md border border-emerald-100 uppercase tracking-wider ml-2">DRAFT</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button 
-                          onClick={handleDownload}
-                          disabled={!hasGeneratedVideo || !currentVideoUrl}
-                          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${darkMode ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}
-                        >
-                            <span className="material-symbols-outlined text-xl">download</span> Download
+                        <button className={`flex items-center gap-2 px-5 py-2.5 border rounded-xl text-sm font-bold transition-colors ${darkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                             <span className="material-symbols-outlined text-xl">visibility</span> Preview
                         </button>
-
                         <button 
                           onClick={handleGenerate}
                           disabled={isGenerating}
@@ -782,8 +616,8 @@ const DashboardPage = () => {
                                 <div className="size-20 bg-primary/5 rounded-3xl flex items-center justify-center text-primary mb-6 ring-1 ring-primary/10">
                                    <span className="material-symbols-outlined text-4xl">upload_file</span>
                                 </div>
-                                <h3 className={`text-xl font-extrabold mb-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>{selectedAssets.length > 0 ? `Asset Selected` : 'Drop Professional Asset Here'}</h3>
-                                <p className={`text-[15px] font-medium max-w-sm mx-auto leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Drag a resume or code snippet from your project panel to start AI analysis.</p>
+                                <h3 className={`text-xl font-extrabold mb-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>{selectedAssets.length > 0 ? `${selectedAssets.length} Assets Selected` : 'Drop Professional Assets Here'}</h3>
+                                <p className={`text-[15px] font-medium max-w-sm mx-auto leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Drag resumes or code snippets from your project panel to start AI analysis.</p>
                                 <div className="mt-10 flex flex-wrap justify-center gap-3">
                                    {selectedAssets.length === 0 && (
                                      <div className={`px-4 py-2 border border-dashed rounded-xl text-[13px] text-slate-400 ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
@@ -792,7 +626,7 @@ const DashboardPage = () => {
                                    )}
                                    {selectedAssets.map((asset) => (
                                      <div key={asset.id} className={`flex items-center gap-2.5 px-4 py-2 border rounded-xl text-[13px] font-bold ${darkMode ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                                        <span className="material-symbols-outlined text-lg text-emerald-500">check_circle</span> {asset.title}
+                                        <span className="material-symbols-outlined text-lg text-emerald-500">check_circle</span> {asset.name}
                                         <button onClick={() => removeAsset(asset.id)} className="ml-1 hover:text-rose-500 text-slate-400 transition-colors"><span className="material-symbols-outlined text-lg">close</span></button>
                                      </div>
                                    ))}
@@ -870,153 +704,44 @@ const DashboardPage = () => {
                     <div className="w-[340px] flex flex-col shrink-0">
                         <div className="sticky top-0 space-y-8">
                             <div className="aspect-[9/16] bg-slate-950 rounded-[3rem] border-[10px] border-slate-900 overflow-hidden relative shadow-[0_40px_80px_-20px_rgba(0,0,0,0.25)] ring-1 ring-slate-800">
-                                {hasGeneratedVideo && currentVideoUrl ? (
-                                    <video 
-                                        ref={videoRef}
-                                        src={currentVideoUrl}
-                                        className="absolute inset-0 w-full h-full object-cover"
-                                        // autoPlay controlled via ref or effect
-                                        loop
-                                        muted={false} 
-                                        controls={false}
-                                        onTimeUpdate={handleTimeUpdate}
-                                        onLoadedMetadata={handleLoadedMetadata}
-                                        onEnded={() => setIsPlaying(false)}
-                                    />
-                                ) : (
-                                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/20 to-slate-950 flex flex-col items-center justify-center p-8 text-center">
-                                        <div className="relative z-10 w-full">
-                                            <div className="size-20 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full mx-auto mb-8 flex items-center justify-center shadow-2xl">
-                                                <span className="material-symbols-outlined text-white text-4xl ml-1">{isPlaying ? 'pause' : 'play_arrow'}</span>
-                                            </div>
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/20 to-slate-950 flex flex-col items-center justify-center p-8 text-center">
+                                    <div className="relative z-10 w-full">
+                                        <div className="size-20 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full mx-auto mb-8 flex items-center justify-center shadow-2xl">
+                                            <span className="material-symbols-outlined text-white text-4xl ml-1">{isPlaying ? 'pause' : 'play_arrow'}</span>
                                         </div>
+                                        <h4 className="text-2xl font-black text-white mb-2 leading-tight tracking-tight">ALEX RIVERA</h4>
+                                        <p className="text-primary font-black text-[10px] tracking-[0.3em] mb-10 uppercase">Senior Software Engineer</p>
                                     </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Timeline Footer */}
-                {/* Timeline Footer - Only show after generation */}
-                {hasGeneratedVideo && (
-                <footer className={`h-28 border-t px-10 py-5 z-10 backdrop-blur-md transition-all ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-100'}`}>
-                    <div className="flex items-center gap-8 h-full">
+                <footer className={`h-44 border-t px-10 py-7 z-10 backdrop-blur-md ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-100'}`}>
+                    <div className="flex items-center gap-8 mb-6">
                         <div className="flex gap-3">
                             <button className={`size-10 flex items-center justify-center rounded-xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className="material-symbols-outlined text-2xl">skip_previous</span></button>
                             <button 
-                                onClick={togglePlay}
+                                onClick={() => setIsPlaying(!isPlaying)}
                                 className="size-10 flex items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/25 hover:bg-indigo-700"
                             >
                                 <span className="material-symbols-outlined text-2xl">{isPlaying ? 'pause' : 'play_arrow'}</span>
                             </button>
                             <button className={`size-10 flex items-center justify-center rounded-xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className="material-symbols-outlined text-2xl">skip_next</span></button>
                         </div>
-                        <div 
-                            className="flex-1 h-2 bg-slate-100 rounded-full relative cursor-pointer group"
-                            onClick={handleSeek}
-                        >
-                            <div 
-                                className="absolute top-0 left-0 h-full bg-primary rounded-full"
-                                style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-                            ></div>
-                            <div 
-                                className="absolute top-1/2 -translate-y-1/2 size-4 bg-primary rounded-full shadow-lg ring-4 ring-primary/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                style={{ left: `${(currentTime / (duration || 1)) * 100}%` }}
-                            ></div>
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full relative">
+                            <div className="absolute top-1/2 -translate-y-1/2 left-[25%] size-4 bg-primary rounded-full shadow-lg ring-4 ring-primary/10 cursor-pointer"></div>
                         </div>
-                        <span className="text-[13px] font-bold text-slate-500 tabular-nums min-w-[100px] text-right">
-                             {formatTime(currentTime)} / {formatTime(duration)}
-                        </span>
+                        <span className="text-[13px] font-bold text-slate-500 tabular-nums">00:14 / 00:58</span>
                     </div>
                 </footer>
-                )}
             </main>
         </>
       )}
-
-      {/* Video Generation Loading Overlay */}
-      {loadingVideoId && (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/80 backdrop-blur-md text-white">
-          <div className="size-24 rounded-full border-4 border-white/10 border-t-primary animate-spin mb-8"></div>
-          <h2 className="text-3xl font-black tracking-tight mb-2 animate-pulse">GENERATING VIDEO</h2>
-          <p className="text-slate-400 font-medium tracking-widest uppercase text-sm">AI is analyzing your assets...</p>
-        </div>
-      )}
-      {/* Help Modal */}
-      {isHelpOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className={`w-full max-w-lg p-8 rounded-3xl shadow-2xl ${darkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}`}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">help</span> How to use
-              </h2>
-              <button 
-                onClick={() => setIsHelpOpen(false)}
-                className={`p-2 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="flex gap-4">
-                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">1</div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">Upload Assets</h3>
-                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Upload your resume (PDF) or code files in the <strong>My Projects</strong> tab or directly in the Editor panel.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">2</div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">Select & Drop</h3>
-                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Drag a file from the <strong>Project Assets</strong> panel and drop it into the center zone.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">3</div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">Choose Style</h3>
-                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Select a visual theme (Tech, Cyber, or Eco) that matches your persona.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">4</div>
-                <div>
-                  <h3 className="font-bold text-lg mb-1">Generate</h3>
-                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Click <strong>Generate</strong> to create your AI video portfolio.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <button 
-              onClick={() => setIsHelpOpen(false)}
-              className="w-full mt-8 py-3.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-indigo-700 transition-all hover:-translate-y-0.5"
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
-      )}
-
-
-
     </div>
   );
 };
-
-
 
 export default DashboardPage;
