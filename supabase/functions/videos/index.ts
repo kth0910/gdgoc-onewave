@@ -140,50 +140,14 @@ serve(async (req) => {
       });
     }
 
-    // Handle GET /videos/{id} - Download/URL info
-    if (req.method === "GET") {
-      // Expecting /videos?id=UUID or /videos/UUID
-      const videoId = url.searchParams.get("id") || pathSegments[pathSegments.length - 1];
-      if (!videoId || videoId === "videos") throw new Error("Video ID is required.");
-
-      const { data, error } = await supabase
-        .from("videos")
-        .select("*")
-        .eq("id", videoId)
-        .eq("user_id", userId)
-        .single();
-
-      if (error || !data) throw new Error("Video not found.");
-
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    // Handle PATCH /videos/{id}/edit
-    if (req.method === "PATCH") {
-        const videoId = pathSegments[pathSegments.length - 1]; // e.g. /videos/edit/{id} or /videos/{id}
-        // Let's assume URL is like /videos/{id} for PATCH
-        if (!videoId || videoId === "videos") throw new Error("Video ID is required.");
-
-        const updates = await req.json();
-        
-        const { data, error } = await supabase
-            .from("videos")
-            .update(updates)
-            .eq("id", videoId)
-            .eq("user_id", userId)
-          .select()
-          .single();
-
-      if (error) throw error;
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
+  } catch (error) {
+    console.error("[Videos] Error:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
+  }
+});
     return new Response("Method or Path not allowed", { status: 405 });
   } catch (error) {
     console.error("[Videos] Error:", error.message);

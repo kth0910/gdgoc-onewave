@@ -50,49 +50,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (req.method === "POST") {
-      const { title, pdf_path, raw_data } = await req.json();
-      const { data, error } = await supabase
-        .from("portfolios")
-        .insert({
-          user_id: userId,
-          title: title || "New Portfolio",
-          pdf_path,
-          raw_data,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 201,
-      });
-    }
-
-    if (req.method === "DELETE") {
-      const id = url.searchParams.get("id");
-      if (!id) throw new Error("Portfolio ID is required for deletion");
-
-      const { error } = await supabase
-        .from("portfolios")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", userId); // Ensure ownership
-
-      if (error) throw error;
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
-
-    return new Response("Method not allowed", { status: 405 });
   } catch (error) {
     console.error("[Portfolios] Error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
+    });
+  }
+});
     });
   }
 });
