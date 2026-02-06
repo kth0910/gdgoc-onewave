@@ -17,20 +17,6 @@ const DashboardPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAuthValidating, setIsAuthValidating] = useState(true);
 
-  const [assets, setAssets] = useState([
-    { id: 1, name: 'Senior_Resume.pdf', date: 'Edited 2 days ago', type: 'doc', color: 'rose' },
-    { id: 2, name: 'Auth_Module_Refactor.js', date: 'Edited 5 hours ago', type: 'code', color: 'amber' },
-    { id: 3, name: 'Product_Portfolio.pdf', date: 'Edited 1 week ago', type: 'doc', color: 'indigo' },
-    { id: 4, name: 'Data_Viz_Snippet.py', date: 'Edited 3 days ago', type: 'code', color: 'emerald' },
-    { id: 5, name: 'System_Architecture.docx', date: 'Edited 1 day ago', type: 'doc', color: 'blue' },
-  ]);
-
-  const [videos] = useState([
-    { id: 1, title: 'Alex Rivera - Senior Engineer', date: 'Created 2 hours ago', duration: '0:58', status: 'Completed', thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-    { id: 2, title: 'Project Showcase 2024', date: 'Created 1 day ago', duration: '1:15', status: 'Processing', thumbnail: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-    { id: 3, title: 'Tech Talk Intro', date: 'Created 3 days ago', duration: '0:45', status: 'Draft', thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-  ]);
-
   // Auth Sync
   useEffect(() => {
     const syncAuth = async () => {
@@ -100,6 +86,19 @@ const DashboardPage = () => {
     );
   }
 
+  const [assets, setAssets] = useState([
+    { id: 1, name: 'Senior_Resume.pdf', date: 'Edited 2 days ago', type: 'doc', color: 'rose' },
+    { id: 2, name: 'Auth_Module_Refactor.js', date: 'Edited 5 hours ago', type: 'code', color: 'amber' },
+    { id: 3, name: 'Product_Portfolio.pdf', date: 'Edited 1 week ago', type: 'doc', color: 'indigo' },
+    { id: 4, name: 'Data_Viz_Snippet.py', date: 'Edited 3 days ago', type: 'code', color: 'emerald' },
+    { id: 5, name: 'System_Architecture.docx', date: 'Edited 1 day ago', type: 'doc', color: 'blue' },
+  ]);
+
+  const [videos] = useState([
+    { id: 1, title: 'Alex Rivera - Senior Engineer', date: 'Created 2 hours ago', duration: '0:58', status: 'Completed', thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+    { id: 2, title: 'Project Showcase 2024', date: 'Created 1 day ago', duration: '1:15', status: 'Processing', thumbnail: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+    { id: 3, title: 'Tech Talk Intro', date: 'Created 3 days ago', duration: '0:45', status: 'Draft', thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  ]);
 
   const scriptSegments = [
     { time: '00:00', title: 'Self Introduction', content: 'Senior Developer Alex here, specializing in full-stack architecture and robust cloud solutions.' },
