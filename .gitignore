@@ -29,6 +29,7 @@ supabase/.temp/
 .env.production.local
 *.env
 *.env.local
+.branches/
 
 # Local DB seed (Optional: if you have sensitive data in seed)
 # supabase/seed.sql
