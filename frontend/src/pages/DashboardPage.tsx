@@ -707,7 +707,7 @@ const DashboardPage = () => {
                                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/20 to-slate-950 flex flex-col items-center justify-center p-8 text-center">
                                     <div className="relative z-10 w-full">
                                         <div className="size-20 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full mx-auto mb-8 flex items-center justify-center shadow-2xl">
-                                            <span className="material-symbols-outlined text-white text-4xl ml-1">play_arrow</span>
+                                            <span className="material-symbols-outlined text-white text-4xl ml-1">{isPlaying ? 'pause' : 'play_arrow'}</span>
                                         </div>
                                         <h4 className="text-2xl font-black text-white mb-2 leading-tight tracking-tight">ALEX RIVERA</h4>
                                         <p className="text-primary font-black text-[10px] tracking-[0.3em] mb-10 uppercase">Senior Software Engineer</p>
@@ -723,7 +723,12 @@ const DashboardPage = () => {
                     <div className="flex items-center gap-8 mb-6">
                         <div className="flex gap-3">
                             <button className={`size-10 flex items-center justify-center rounded-xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className="material-symbols-outlined text-2xl">skip_previous</span></button>
-                            <button className="size-10 flex items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/25 hover:bg-indigo-700"><span className="material-symbols-outlined text-2xl">play_arrow</span></button>
+                            <button 
+                                onClick={() => setIsPlaying(!isPlaying)}
+                                className="size-10 flex items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/25 hover:bg-indigo-700"
+                            >
+                                <span className="material-symbols-outlined text-2xl">{isPlaying ? 'pause' : 'play_arrow'}</span>
+                            </button>
                             <button className={`size-10 flex items-center justify-center rounded-xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className="material-symbols-outlined text-2xl">skip_next</span></button>
                         </div>
                         <div className="flex-1 h-2 bg-slate-100 rounded-full relative">
