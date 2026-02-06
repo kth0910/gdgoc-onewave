@@ -16,21 +16,86 @@ const DashboardPage = () => {
 
   // API State
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasGeneratedVideo, setHasGeneratedVideo] = useState(false);
   const [isAuthValidating, setIsAuthValidating] = useState(true);
 
-  const [assets, setAssets] = useState([
-    { id: 1, name: 'Senior_Resume.pdf', date: 'Edited 2 days ago', type: 'doc', color: 'rose' },
-    { id: 2, name: 'Auth_Module_Refactor.js', date: 'Edited 5 hours ago', type: 'code', color: 'amber' },
-    { id: 3, name: 'Product_Portfolio.pdf', date: 'Edited 1 week ago', type: 'doc', color: 'indigo' },
-    { id: 4, name: 'Data_Viz_Snippet.py', date: 'Edited 3 days ago', type: 'code', color: 'emerald' },
-    { id: 5, name: 'System_Architecture.docx', date: 'Edited 1 day ago', type: 'doc', color: 'blue' },
-  ]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  const [videos] = useState([
-    { id: 1, title: 'Alex Rivera - Senior Engineer', date: 'Created 2 hours ago', duration: '0:58', status: 'Completed', thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-    { id: 2, title: 'Project Showcase 2024', date: 'Created 1 day ago', duration: '1:15', status: 'Processing', thumbnail: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-    { id: 3, title: 'Tech Talk Intro', date: 'Created 3 days ago', duration: '0:45', status: 'Draft', thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-  ]);
+  // Reset search query when switching tabs
+  useEffect(() => {
+    setSearchQuery('');
+  }, [selectedTab]);
+
+  const [assets, setAssets] = useState<any[]>([]);
+
+  const fetchPortfolios = async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await fetch(`${baseUrl}/functions/v1/portfolio`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_KEY,
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAssets(data);
+      } else {
+        console.error("Failed to fetch portfolios");
+      }
+    } catch (error) {
+      console.error("Error fetching portfolios:", error);
+    }
+  };
+
+  const [videos, setVideos] = useState<any[]>([]);
+
+  const fetchVideos = async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await fetch(`${baseUrl}/functions/v1/videos`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_KEY,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const formattedVideos = data.map((v: any) => ({
+          id: v.id,
+          title: v.ai_metadata?.prompt || 'Untitled Video', // Fallback title
+          date: new Date(v.created_at).toLocaleDateString(),
+          duration: '0:30', // Mock duration until real generation
+          status: v.status === 'READY' ? 'Completed' : 'Processing', // Map statuses
+          thumbnail: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' // Placeholder
+        }));
+        setVideos(formattedVideos);
+      } else {
+        console.error("Failed to fetch videos");
+      }
+    } catch (error) {
+      console.error("Error fetching videos:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthValidating) {
+      fetchPortfolios();
+      fetchVideos();
+    }
+  }, [isAuthValidating]);
 
   // Auth Sync
   useEffect(() => {
@@ -130,9 +195,8 @@ const DashboardPage = () => {
       const assetData = e.dataTransfer.getData('application/json');
       if (assetData) {
         const asset = JSON.parse(assetData);
-        if (!selectedAssets.find(a => a.id === asset.id)) {
-          setSelectedAssets([...selectedAssets, asset]);
-        }
+        // Single asset selection mode: Replace existing selection
+        setSelectedAssets([asset]);
       }
     } catch (err) {
       console.error('Failed to parse dropped item', err);
@@ -155,29 +219,35 @@ const DashboardPage = () => {
     try {
       const token = await getToken();
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('pdf', file);
       // Determine type based on extension (simple heuristic)
       const isCode = file.name.match(/\.(js|ts|py|rs|go|java|cpp)$/i);
-      if (isCode) {
-        formData.append('type', 'code');
-      } else {
-        formData.append('type', 'resume'); // Default to resume/doc
-      }
+      const type = isCode ? 'code' : 'doc';
+      
+      formData.append('title', file.name);
+      formData.append('raw_data', JSON.stringify({ 
+         type: type, 
+         originalSize: file.size, 
+         extension: file.name.split('.').pop() 
+      }));
 
       // Optimistic UI update (optional) or wait for response
       // Let's verify with alert first as per previous pattern or just simple loading
-      const response = await fetch('/api/portfolio', {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await fetch(`${baseUrl}/functions/v1/portfolio`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          // Content-Type is set automatically for FormData
+          'apikey': import.meta.env.VITE_SUPABASE_KEY,
         },
         body: formData,
+        credentials: 'include',
       });
 
       if (response.ok || response.status === 201) {
         const newAsset = await response.json();
         // Fallback for mock environment if response is empty or not as expected
+        console.log(newAsset.id);
         const safeAsset = newAsset && newAsset.id ? newAsset : {
            id: Date.now(),
            name: file.name,
@@ -220,30 +290,42 @@ const DashboardPage = () => {
     setIsGenerating(true);
 
     try {
+      // Map internal theme to API visual_style
+      const themeMap: Record<string, string> = {
+        'tech': 'standard tech',
+        'cyber': 'neon high-energy',
+        'eco': 'eco modern'
+      };
+
       const payload = {
-        assetIds: selectedAssets.map(a => a.id),
-        theme: selectedTheme
+        portfolio_id: selectedAssets[0].id, // API expects single ID
+        visual_style: themeMap[selectedTheme] || 'standard tech'
       };
 
       console.log("Sending generation request:", payload);
 
       const token = await getToken();
-      const response = await fetch('/api/video/generate', {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+      const response = await fetch(`${baseUrl}/functions/v1/videos/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_KEY,
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
+        credentials: 'include',
       });
 
       if (response.ok || response.status === 202) { // Accepting 202 as per spec
           alert("Video generation started successfully!");
+          setHasGeneratedVideo(true);
           // Reset or redirect logic here if needed
       } else {
         // Fallback for mock environment if checking strictly, otherwise alert success for demo
          console.warn("API request failed (expected in mock env):", response.status);
          alert("Video generation request simulated. (API endpoint not actually running)");
+         setHasGeneratedVideo(true);
       }
 
     } catch (error) {
@@ -299,7 +381,10 @@ const DashboardPage = () => {
           </button>
         </nav>
         <div className="mt-auto flex flex-col gap-6">
-           <button className={`p-3 transition-colors ${darkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-primary'}`}>
+           <button 
+              onClick={() => setIsHelpOpen(true)}
+              className={`p-3 transition-colors ${darkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-primary'}`}
+            >
              <span className="material-symbols-outlined">help</span>
            </button>
           <div className="size-10 rounded-full bg-slate-100 overflow-hidden border-2 border-slate-50 shadow-sm">
@@ -400,18 +485,15 @@ const DashboardPage = () => {
                     className={`w-full rounded-2xl pl-12 pr-4 py-3.5 text-sm outline-none border transition-all focus:ring-2 focus:ring-primary/50 focus:border-primary ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 focus:shadow-sm'}`} 
                     placeholder="Search assets..." 
                     type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
-                </div>
-                <div className="flex gap-2">
-                  <button className="px-5 py-3.5 bg-primary text-white text-sm font-bold rounded-xl shadow-md shadow-primary/20">All</button>
-                  <button className={`px-5 py-3.5 text-sm font-bold rounded-xl border transition-colors ${darkMode ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Resumes</button>
-                  <button className={`px-5 py-3.5 text-sm font-bold rounded-xl border transition-colors ${darkMode ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>Code</button>
                 </div>
               </div>
 
               {/* Assets List */}
               <div className="space-y-4">
-                {assets.map((asset) => (
+                {assets.filter(asset => asset.title.toLowerCase().includes(searchQuery.toLowerCase())).map((asset) => (
                   <div key={asset.id} className={`group p-5 rounded-2xl border transition-all hover:shadow-lg cursor-pointer flex items-center gap-5 ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-primary/50' : 'bg-white border-slate-100 hover:border-primary/30'}`}>
                     <div 
                       className={`size-14 flex items-center justify-center rounded-2xl text-xl shrink-0 ${
@@ -425,7 +507,7 @@ const DashboardPage = () => {
                       <span className="material-symbols-outlined">{asset.type === 'doc' ? 'description' : asset.type === 'code' ? 'terminal' : 'description'}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className={`text-base font-bold truncate mb-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.name}</h4>
+                      <h4 className={`text-base font-bold truncate mb-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.title}</h4>
                       <div className="flex items-center gap-3">
                         <span className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>{asset.date}</span>
                         <div className={`size-1 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-slate-300'}`}></div>
@@ -520,17 +602,14 @@ const DashboardPage = () => {
                         className={`w-full rounded-xl pl-11 pr-4 py-2.5 text-sm focus:ring-primary focus:border-primary shadow-sm outline-none border ${darkMode ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' : 'bg-white border-slate-200'}`} 
                         placeholder="Search assets..." 
                         type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                </div>
-                <div className="flex gap-2 mb-2">
-                    <button className="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-full shadow-md shadow-primary/20">All</button>
-                    <button className={`px-4 py-1.5 text-xs font-semibold rounded-full border hover:bg-slate-50 ${darkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-white text-slate-500 border-slate-200'}`}>Resume</button>
-                    <button className={`px-4 py-1.5 text-xs font-semibold rounded-full border hover:bg-slate-50 ${darkMode ? 'bg-slate-700 text-slate-300 border-slate-600' : 'bg-white text-slate-500 border-slate-200'}`}>Code</button>
                 </div>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto px-7 pb-6 space-y-3 no-scrollbar">
-                {assets.map((asset) => (
+                {assets.filter(asset => asset.title.toLowerCase().includes(searchQuery.toLowerCase())).map((asset) => (
                     <div 
                       key={asset.id} 
                       draggable
@@ -550,7 +629,7 @@ const DashboardPage = () => {
                         <span className="material-symbols-outlined">{asset.type === 'doc' ? 'description' : asset.type === 'code' ? 'terminal' : 'description'}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                        <p className={`text-[13px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.name}</p>
+                        <p className={`text-[13px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{asset.title}</p>
                         <p className={`text-[10px] mt-1 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>{asset.date}</p>
                         </div>
                     </div>
@@ -558,15 +637,7 @@ const DashboardPage = () => {
                 ))}
                 </div>
 
-                <div className={`p-6 border-t ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white/50'}`}>
-                    <div className={`flex items-center justify-between text-[11px] font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                        <span>Storage Used (85%)</span>
-                        <span className="text-primary">1.7GB / 2GB</span>
-                    </div>
-                    <div className={`w-full h-2 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`}>
-                        <div className="h-full bg-primary rounded-full shadow-[0_0_8px_rgba(79,70,229,0.3)]" style={{ width: '85%' }}></div>
-                    </div>
-                </div>
+
             </section>
 
             {/* Main Workspace */}
@@ -581,9 +652,7 @@ const DashboardPage = () => {
                         <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-md border border-emerald-100 uppercase tracking-wider ml-2">DRAFT</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button className={`flex items-center gap-2 px-5 py-2.5 border rounded-xl text-sm font-bold transition-colors ${darkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                             <span className="material-symbols-outlined text-xl">visibility</span> Preview
-                        </button>
+
                         <button 
                           onClick={handleGenerate}
                           disabled={isGenerating}
@@ -616,8 +685,8 @@ const DashboardPage = () => {
                                 <div className="size-20 bg-primary/5 rounded-3xl flex items-center justify-center text-primary mb-6 ring-1 ring-primary/10">
                                    <span className="material-symbols-outlined text-4xl">upload_file</span>
                                 </div>
-                                <h3 className={`text-xl font-extrabold mb-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>{selectedAssets.length > 0 ? `${selectedAssets.length} Assets Selected` : 'Drop Professional Assets Here'}</h3>
-                                <p className={`text-[15px] font-medium max-w-sm mx-auto leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Drag resumes or code snippets from your project panel to start AI analysis.</p>
+                                <h3 className={`text-xl font-extrabold mb-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>{selectedAssets.length > 0 ? `Asset Selected` : 'Drop Professional Asset Here'}</h3>
+                                <p className={`text-[15px] font-medium max-w-sm mx-auto leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-400'}`}>Drag a resume or code snippet from your project panel to start AI analysis.</p>
                                 <div className="mt-10 flex flex-wrap justify-center gap-3">
                                    {selectedAssets.length === 0 && (
                                      <div className={`px-4 py-2 border border-dashed rounded-xl text-[13px] text-slate-400 ${darkMode ? 'border-slate-600' : 'border-slate-300'}`}>
@@ -626,7 +695,7 @@ const DashboardPage = () => {
                                    )}
                                    {selectedAssets.map((asset) => (
                                      <div key={asset.id} className={`flex items-center gap-2.5 px-4 py-2 border rounded-xl text-[13px] font-bold ${darkMode ? 'bg-slate-700 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                                        <span className="material-symbols-outlined text-lg text-emerald-500">check_circle</span> {asset.name}
+                                        <span className="material-symbols-outlined text-lg text-emerald-500">check_circle</span> {asset.title}
                                         <button onClick={() => removeAsset(asset.id)} className="ml-1 hover:text-rose-500 text-slate-400 transition-colors"><span className="material-symbols-outlined text-lg">close</span></button>
                                      </div>
                                    ))}
@@ -719,6 +788,8 @@ const DashboardPage = () => {
                 </div>
 
                 {/* Timeline Footer */}
+                {/* Timeline Footer - Only show after generation */}
+                {hasGeneratedVideo && (
                 <footer className={`h-44 border-t px-10 py-7 z-10 backdrop-blur-md ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-100'}`}>
                     <div className="flex items-center gap-8 mb-6">
                         <div className="flex gap-3">
@@ -737,9 +808,79 @@ const DashboardPage = () => {
                         <span className="text-[13px] font-bold text-slate-500 tabular-nums">00:14 / 00:58</span>
                     </div>
                 </footer>
+                )}
             </main>
         </>
       )}
+
+      {/* Help Modal */}
+      {isHelpOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className={`w-full max-w-lg p-8 rounded-3xl shadow-2xl ${darkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-900'}`}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">help</span> How to use
+              </h2>
+              <button 
+                onClick={() => setIsHelpOpen(false)}
+                className={`p-2 rounded-full transition-colors ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">1</div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Upload Assets</h3>
+                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Upload your resume (PDF) or code files in the <strong>My Projects</strong> tab or directly in the Editor panel.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">2</div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Select & Drop</h3>
+                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Drag a file from the <strong>Project Assets</strong> panel and drop it into the center zone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">3</div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Choose Style</h3>
+                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Select a visual theme (Tech, Cyber, or Eco) that matches your persona.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">4</div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Generate</h3>
+                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Click <strong>Generate</strong> to create your AI video portfolio.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setIsHelpOpen(false)}
+              className="w-full mt-8 py-3.5 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-indigo-700 transition-all hover:-translate-y-0.5"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
