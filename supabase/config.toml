@@ -1,9 +1,11 @@
 
-
 [functions.auth]
 verify_jwt = false
 
-[functions.portfolios]
+[functions.portfolio]
+verify_jwt = false
+
+[functions.user]
 verify_jwt = false
 
 [functions.videos]
