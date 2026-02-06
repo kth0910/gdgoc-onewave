@@ -35,4 +35,3 @@ supabase/.temp/
 .deno/
 
 # Test artifacts
-frontend/test_write.txt
