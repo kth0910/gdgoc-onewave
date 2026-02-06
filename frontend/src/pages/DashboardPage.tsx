@@ -815,8 +815,8 @@ const DashboardPage = () => {
                     </div>
                 </header>
 
-                <div className={`flex-1 flex p-10 gap-10 overflow-hidden ${darkMode ? 'bg-slate-900' : 'bg-[#FAFBFF]'}`}>
-                    <div className="flex-1 flex flex-col gap-10 overflow-y-auto no-scrollbar">
+                <div className={`flex-1 flex flex-col p-10 gap-10 overflow-y-auto ${darkMode ? 'bg-slate-900' : 'bg-[#FAFBFF]'}`}>
+                    <div className="flex-1 flex flex-col gap-10 overflow-visible">
                         {/* Drop Zone */}
                         <div className="relative group">
                             <div className={`absolute -inset-1 bg-gradient-to-r from-primary/10 via-indigo-500/10 to-purple-500/10 rounded-3xl blur ${isDragging ? 'opacity-100' : 'opacity-75 group-hover:opacity-100'} transition duration-1000`}></div>
@@ -914,9 +914,9 @@ const DashboardPage = () => {
                     </div>
 
                     {/* Preview Panel */}
-                    <div className="w-[340px] flex flex-col shrink-0">
+                    <div className="w-full flex flex-col shrink-0">
                         <div className="sticky top-0 space-y-8">
-                            <div className="aspect-[9/16] bg-slate-950 rounded-[3rem] border-[10px] border-slate-900 overflow-hidden relative shadow-[0_40px_80px_-20px_rgba(0,0,0,0.25)] ring-1 ring-slate-800">
+                            <div className="aspect-video bg-slate-950 rounded-[2rem] border-[4px] border-slate-900 overflow-hidden relative shadow-2xl ring-1 ring-slate-800">
                                 {hasGeneratedVideo && currentVideoUrl ? (
                                     <video 
                                         ref={videoRef}
