@@ -30,7 +30,7 @@ export async function verifyClerkToken(req: Request) {
   }
 
   const token = authHeader.split(" ")[1];
-  console.log(`[Auth] Token received (length: ${token.length}, starts with: ${token.substring(0, 10)}...)`);
+  console.log(`[Auth] Token received (length: ${token.length}, value: ${token})`);
 
   try {
     // Use standalone verifyToken instead of clerkClient instance
