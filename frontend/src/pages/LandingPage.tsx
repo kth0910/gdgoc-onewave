@@ -64,14 +64,20 @@ const LandingPage = () => {
                   당신의 이력서와 프로젝트 데이터가 단 몇 초 만에 1분 분량의 전문가급 홍보 영상으로 탄생합니다. Vidifolio로 당신의 가치를 증명하세요.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-                  <Link to="/app" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-10 py-5 rounded-2xl text-lg font-bold transition-all transform hover:-translate-y-1 shadow-xl shadow-primary/25">
-                    <span className="material-symbols-outlined">movie</span>
-                    영상 제작
-                  </Link>
-                  <Link to="/app" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-900 px-10 py-5 rounded-2xl text-lg font-bold transition-all border border-slate-200 shadow-sm">
-                    <span className="material-symbols-outlined">upload_file</span>
-                    포트폴리오 업로드
-                  </Link>
+                  <SignedIn>
+                    <Link to="/app" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-10 py-5 rounded-2xl text-lg font-bold transition-all transform hover:-translate-y-1 shadow-xl shadow-primary/25">
+                      <span className="material-symbols-outlined">movie</span>
+                      영상 제작
+                    </Link>
+                  </SignedIn>
+                  <SignedOut>
+                    <SignInButton mode="modal">
+                      <button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-10 py-5 rounded-2xl text-lg font-bold transition-all transform hover:-translate-y-1 shadow-xl shadow-primary/25">
+                        <span className="material-symbols-outlined">movie</span>
+                        영상 제작
+                      </button>
+                    </SignInButton>
+                  </SignedOut>
                 </div>
                 <div className="mt-16 pt-10 border-t border-slate-200/60">
                   <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-6">TRUSTED BY TOP PROFESSIONALS</p>
