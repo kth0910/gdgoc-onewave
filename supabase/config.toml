@@ -1,0 +1,10 @@
+
+
+[functions.auth]
+verify_jwt = false
+
+[functions.portfolios]
+verify_jwt = false
+
+[functions.videos]
+verify_jwt = false
